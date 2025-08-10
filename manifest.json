@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "JS Control",
-  "version": "1.5",
+  "version": "1.0",
   "description": "Control JavaScript on websites with a single click.",
   "permissions": [
     "storage",

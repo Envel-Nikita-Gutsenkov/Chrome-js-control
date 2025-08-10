@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentUrl;
     let currentTabId;
+    const TEMP_BLOCK_RULE_ID = 2;
+    const PERMANENT_RULE_ID_OFFSET = 1000;
 
     function getRuleId(url) {
         let hash = 0;
@@ -16,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
             hash = ((hash << 5) - hash) + char;
             hash |= 0;
         }
-        return Math.abs(hash) + 1000;
+        return Math.abs(hash) + PERMANENT_RULE_ID_OFFSET;
     }
 
     async function updateUIState() {
@@ -32,37 +34,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isPermanentlyDisabled = (disabledSites || []).includes(currentUrl);
 
                 const rules = await chrome.declarativeNetRequest.getDynamicRules();
-                const isTemporarilyDisabled = rules.some(rule => rule.id === 2);
-
+                const isTemporarilyDisabled = rules.some(rule => rule.id === TEMP_BLOCK_RULE_ID);
+                
                 if (isPermanentlyDisabled) {
-                    tempDisableBtn.disabled = true;
-                    permDisableBtn.disabled = true;
-                    enableBtn.disabled = false;
+                    tempDisableBtn.style.display = 'none';
+                    permDisableBtn.style.display = 'none';
+                    enableBtn.style.display = 'block';
                     statusMessage.textContent = 'JS is permanently disabled.';
                 } else if (isTemporarilyDisabled) {
-                    tempDisableBtn.disabled = true;
-                    permDisableBtn.disabled = false;
-                    enableBtn.disabled = false;
+                    tempDisableBtn.style.display = 'none';
+                    permDisableBtn.style.display = 'block';
+                    enableBtn.style.display = 'block';
                     statusMessage.textContent = 'JS is temporarily disabled.';
-                }
-                else {
-                    tempDisableBtn.disabled = false;
-                    permDisableBtn.disabled = false;
-                    enableBtn.disabled = true;
+                } else {
+                    tempDisableBtn.style.display = 'block';
+                    permDisableBtn.style.display = 'block';
+                    enableBtn.style.display = 'none';
                     statusMessage.textContent = '';
                 }
             } catch (e) {
                 currentSiteElement.textContent = `Not a valid URL`;
-                tempDisableBtn.disabled = true;
-                permDisableBtn.disabled = true;
-                enableBtn.disabled = true;
+                tempDisableBtn.style.display = 'none';
+                permDisableBtn.style.display = 'none';
+                enableBtn.style.display = 'none';
                 statusMessage.textContent = '';
             }
         } else {
             currentSiteElement.textContent = `Not available`;
-            tempDisableBtn.disabled = true;
-            permDisableBtn.disabled = true;
-            enableBtn.disabled = true;
+            tempDisableBtn.style.display = 'none';
+            permDisableBtn.style.display = 'none';
+            enableBtn.style.display = 'none';
             statusMessage.textContent = '';
         }
     }

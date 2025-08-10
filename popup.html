@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS Control</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; width: 300px; padding: 10px; }
+        button { width: 100%; padding: 10px; margin-top: 10px; cursor: pointer; border: none; border-radius: 5px; color: white; font-weight: bold; }
+        .temp-disable-btn { background-color: #f44336; }
+        .perm-disable-btn { background-color: #ff9800; }
+        .enable-btn { background-color: #4CAF50; }
+        .options-btn { background-color: #555; }
+        p { text-align: center; }
+    </style>
+</head>
+<body>
+    <h2>JS Control</h2>
+    <p id="current-site">Loading...</p>
+    <button id="tempDisableBtn" class="temp-disable-btn">Disable for this session</button>
+    <button id="permDisableBtn" class="perm-disable-btn">Disable permanently</button>
+    <button id="enableBtn" class="enable-btn">Enable JS</button>
+    <p id="status-message"></p>
+    <button id="optionsBtn" class="options-btn">Manage list</button>
+    <script src="popup.js"></script>
+</body>
+</html>

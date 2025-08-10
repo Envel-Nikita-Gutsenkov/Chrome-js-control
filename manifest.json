@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "JS Control",
+  "version": "1.5",
+  "description": "Control JavaScript on websites with a single click.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_page": "options.html"
+}

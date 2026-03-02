@@ -1,39 +1,43 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const disabledSitesList = document.getElementById('disabledSitesList');
-    const statusMessage = document.getElementById('status-message');
+document.addEventListener('DOMContentLoaded', async () => {
+    const siteList = document.getElementById('siteList');
+    const emptyState = document.getElementById('emptyState');
 
-    function loadDisabledSites() {
-        chrome.storage.sync.get('disabledSites', (data) => {
-            const sites = data.disabledSites || [];
-            disabledSitesList.innerHTML = '';
-            if (sites.length === 0) {
-                statusMessage.textContent = 'List is empty.';
-                return;
-            } else {
-                statusMessage.textContent = '';
-            }
+    async function loadBlockedSites() {
+        const { disabledSites } = await chrome.storage.sync.get('disabledSites');
+        const sites = disabledSites || [];
 
-            sites.forEach(site => {
-                const li = document.createElement('li');
-                li.innerHTML = `<span class="site-name">${site}</span><button class="remove-btn">Remove</button>`;
-                li.querySelector('.remove-btn').addEventListener('click', () => {
-                    removeSite(site);
-                });
-                disabledSitesList.appendChild(li);
+        siteList.innerHTML = '';
+
+        if (sites.length === 0) {
+            siteList.style.display = 'none';
+            emptyState.style.display = 'flex';
+            return;
+        }
+
+        siteList.style.display = 'block';
+        emptyState.style.display = 'none';
+
+        sites.forEach(site => {
+            const li = document.createElement('li');
+
+            const urlSpan = document.createElement('span');
+            urlSpan.className = 'site-url';
+            urlSpan.textContent = site;
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn-remove';
+            removeBtn.textContent = 'Remove';
+
+            removeBtn.addEventListener('click', async () => {
+                await chrome.runtime.sendMessage({ action: 'remove_permanent', url: site });
+                loadBlockedSites(); // reload
             });
+
+            li.appendChild(urlSpan);
+            li.appendChild(removeBtn);
+            siteList.appendChild(li);
         });
     }
 
-    function removeSite(siteToRemove) {
-        chrome.storage.sync.get('disabledSites', (data) => {
-            let sites = data.disabledSites || [];
-            sites = sites.filter(site => site !== siteToRemove);
-            chrome.storage.sync.set({ disabledSites: sites }, () => {
-                loadDisabledSites();
-                chrome.runtime.sendMessage({ action: 'remove_permanent', url: siteToRemove });
-            });
-        });
-    }
-
-    loadDisabledSites();
+    loadBlockedSites();
 });

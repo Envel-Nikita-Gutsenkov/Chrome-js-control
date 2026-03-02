@@ -1,5 +1,7 @@
 const PERMANENT_RULE_ID_OFFSET = 1000;
-const TEMP_BLOCK_RULE_ID = 2;
+const HEADER_RULE_ID_OFFSET = 500000;
+const TEMP_BLOCK_SCRIPT_RULE_ID = 2;
+const TEMP_BLOCK_HEADER_RULE_ID = 3;
 const SHOPIFY_CDN = 'cdn.shopifycdn.net';
 const VITALS_APP_CDN = 'cdn-sf.vitals.app';
 const OXIAPPS_CDN = 'social-login.oxiapps.com';
@@ -14,28 +16,57 @@ function getRuleId(url) {
     return Math.abs(hash) + PERMANENT_RULE_ID_OFFSET;
 }
 
-async function addBlockRules(urls, isPermanent = false) {
-    const rules = urls.map(url => {
-        const ruleId = isPermanent ? getRuleId(url) : TEMP_BLOCK_RULE_ID;
-        const priority = isPermanent ? 10 : 2;
+function createRulesForUrl(url, isPermanent) {
+    const scriptRuleId = isPermanent ? getRuleId(url) : TEMP_BLOCK_SCRIPT_RULE_ID;
+    const headerRuleId = isPermanent ? getRuleId(url) + HEADER_RULE_ID_OFFSET : TEMP_BLOCK_HEADER_RULE_ID;
+    const priority = isPermanent ? 10 : 2;
 
-        return {
-            id: ruleId,
-            priority: priority,
-            action: { type: "block" },
-            condition: {
-                urlFilter: `*://*${url}/*`,
-                resourceTypes: ["script"]
-            }
-        };
+    const scriptRule = {
+        id: scriptRuleId,
+        priority: priority,
+        action: { type: "block" },
+        condition: {
+            // Block all scripts requested by this domain, to strictly prevent 1st and 3rd party loading
+            initiatorDomains: [url],
+            resourceTypes: ["script"]
+        }
+    };
+
+    const headerRule = {
+        id: headerRuleId,
+        priority: priority,
+        action: {
+            type: "modifyHeaders",
+            responseHeaders: [
+                {
+                    header: "Content-Security-Policy",
+                    operation: "append",
+                    value: "script-src 'none';"
+                }
+            ]
+        },
+        condition: {
+            // Target the main/sub frames of the domain itself
+            urlFilter: `||${url}`,
+            resourceTypes: ["main_frame", "sub_frame"]
+        }
+    };
+
+    return [scriptRule, headerRule];
+}
+
+async function addBlockRules(urls, isPermanent = false) {
+    let allRules = [];
+    urls.forEach(url => {
+        allRules = allRules.concat(createRulesForUrl(url, isPermanent));
     });
 
     try {
-        const removeRuleIds = rules.map(rule => rule.id);
-        console.log(`Adding rules for URLs: ${urls.join(', ')} with IDs: ${removeRuleIds.join(', ')}`);
+        const removeRuleIds = allRules.map(rule => rule.id);
+        console.log(`Adding strict rules for URLs: ${urls.join(', ')}`);
         await chrome.declarativeNetRequest.updateDynamicRules({
             removeRuleIds: removeRuleIds,
-            addRules: rules
+            addRules: allRules
         });
         console.log(`Rules added successfully.`);
     } catch (e) {
@@ -43,14 +74,20 @@ async function addBlockRules(urls, isPermanent = false) {
     }
 }
 
-async function removeBlockRule(url, isPermanent = false) {
-    const ruleId = isPermanent ? getRuleId(url) : TEMP_BLOCK_RULE_ID;
+async function removeBlockRule(urls, isPermanent = false) {
+    let removeRuleIds = [];
+    urls.forEach(url => {
+        const scriptRuleId = isPermanent ? getRuleId(url) : TEMP_BLOCK_SCRIPT_RULE_ID;
+        const headerRuleId = isPermanent ? getRuleId(url) + HEADER_RULE_ID_OFFSET : TEMP_BLOCK_HEADER_RULE_ID;
+        removeRuleIds.push(scriptRuleId, headerRuleId);
+    });
+
     try {
-        console.log(`Removing rule for URL: ${url} with ID: ${ruleId}`);
+        console.log(`Removing strict rules for URLs: ${urls.join(', ')}`);
         await chrome.declarativeNetRequest.updateDynamicRules({
-            removeRuleIds: [ruleId]
+            removeRuleIds: removeRuleIds
         });
-        console.log(`Rule removed successfully.`);
+        console.log(`Rules removed successfully.`);
     } catch (e) {
         console.error("Failed to remove rule:", e);
     }
@@ -59,26 +96,20 @@ async function removeBlockRule(url, isPermanent = false) {
 async function applyPermanentRules() {
     const { disabledSites } = await chrome.storage.sync.get('disabledSites');
     const sites = disabledSites || [];
-    console.log("Applying permanent rules for sites:", sites);
+    console.log("Applying strict permanent rules for sites:", sites);
 
     const allUrlsToBlock = new Set();
     sites.forEach(site => {
         allUrlsToBlock.add(site);
-        // Добавляем связанные CDN
         allUrlsToBlock.add(SHOPIFY_CDN);
         allUrlsToBlock.add(VITALS_APP_CDN);
         allUrlsToBlock.add(OXIAPPS_CDN);
     });
 
-    const permanentRules = [...allUrlsToBlock].map(url => ({
-        id: getRuleId(url),
-        priority: 10,
-        action: { type: "block" },
-        condition: {
-            urlFilter: `*://*${url}/*`,
-            resourceTypes: ["script"]
-        }
-    }));
+    let permanentRules = [];
+    allUrlsToBlock.forEach(url => {
+        permanentRules = permanentRules.concat(createRulesForUrl(url, true));
+    });
 
     const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
     const permanentRuleIds = existingRules
@@ -96,8 +127,19 @@ async function applyPermanentRules() {
     }
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
+    // Enable badge text matching the block action count
+    await chrome.declarativeNetRequest.setExtensionActionOptions({ displayActionCountAsBadgeText: true });
+
+    // Set a sleek dark background for the badge
+    await chrome.action.setBadgeBackgroundColor({ color: "#e74c3c" });
+
     applyPermanentRules();
+});
+
+chrome.runtime.onStartup.addListener(async () => {
+    await chrome.declarativeNetRequest.setExtensionActionOptions({ displayActionCountAsBadgeText: true });
+    await chrome.action.setBadgeBackgroundColor({ color: "#e74c3c" });
 });
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -117,13 +159,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             let sites = disabledSites || [];
             sites = sites.filter(site => site !== request.url);
             await chrome.storage.sync.set({ disabledSites: sites });
-            await removeBlockRule(request.url, true);
+            const urlsToRemove = [request.url, SHOPIFY_CDN, VITALS_APP_CDN, OXIAPPS_CDN];
+            await removeBlockRule(urlsToRemove, true);
             sendResponse({ status: 'success', message: 'Site removed from permanent list.' });
         } else if (request.action === 'disable_temp') {
             await addBlockRules([request.url], false);
-            sendResponse({ status: 'success', message: 'JS disabled for this session.' });
+            sendResponse({ status: 'success', message: 'JS strictly disabled for this session.' });
         } else if (request.action === 'enable_temp') {
-            await removeBlockRule(request.url, false);
+            await removeBlockRule([request.url], false);
             sendResponse({ status: 'success', message: 'JS enabled for this session.' });
         }
     })();

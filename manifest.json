@@ -2,11 +2,13 @@
   "manifest_version": 3,
   "name": "JS Control",
   "version": "1.0",
-  "description": "Control JavaScript on websites with a single click.",
+  "description": "Strictly control JavaScript execution on websites with a single click. Ultimate performance and security.",
   "permissions": [
     "storage",
     "activeTab",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess",
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
